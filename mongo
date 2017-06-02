@@ -1,0 +1,5 @@
+#!/bin/bash
+
+echo "MongoDB Running"
+./mongodb/bin/mongod --config /Users/zantiiago0/Documents/GIT/IPGH/mongodb/data/mongod.conf
+echo "MongoDB Stopped"
