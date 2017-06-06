@@ -19,7 +19,6 @@ class TheGuardianExtractor:
 
     def __init__(self):
         self.__contentTAG = "content__article-body from-content-api js-article__body"
-        pass
 
     def getContent(self, **query):
         """
@@ -30,21 +29,13 @@ class TheGuardianExtractor:
         """
         bSONResult = []
 
-        section = theguardian_section.Section(api='test', **query)
-        # get the results
-        section_content = section.get_content_response()
-        results = section.get_results(section_content)
+        # Weather apiUrl
+        weatherAPI = "https://content.guardianapis.com/weather"
 
-        # get different editions from the results
-        editions = results[0]['editions']
+        # Get weather content
+        content = theguardian_content.Content(api='test', url=weatherAPI, **query)
 
-        # get uk/sports edition apiUrl
-        uk_sports = [edi["apiUrl"] for edi in editions if edi["id"] == "uk/business"][0]
-
-        # use this api url to sports content
-        content = theguardian_content.Content(api='test', url=uk_sports)
-
-        # get section response
+        # Get content response
         response = content.get_content_response()
 
         for itDoc in response['response']['results']:
