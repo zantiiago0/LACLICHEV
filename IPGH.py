@@ -7,6 +7,7 @@ This example deals with returning content of section.
 ###################################################################################################
 #import json
 import os
+import datetime
 
 #MongoDB
 from   pymongo        import MongoClient
@@ -66,18 +67,37 @@ else:
     archivedCollection = mongoDB.ArchivedData
     archivedCollection.create_index([('name', 'text')], unique=True)
 
-# Get the search query
-query = "Storms in Guadalajara between January 2000 and September 2017"#input('What are you searching? ')
-info = InformationExtraction(query)
+# Get the QueryCollection Collection
+if 'QueryDB' in mongoDB.collection_names():
+    queryCollection = mongoDB.QueryDB
+else:
+    mongoDB.create_collection('QueryDB')
+    queryCollection = mongoDB.QueryDB
 
-print(info)
+# Get the search query
+query = "Storms in Guadalajara between 2000 and 2017"
+#query = input('What are you searching? ')
+info = InformationExtraction(query)
+#print(info)
 
 event    = info[0][0]
 location = info[2][0][0]
-fromDate = info[5][0]
-toDate   = info[8][0]
+fromDate = info[4][0]
+toDate   = info[6][0]
 
 arrayBSON = TheGuardianExtractor().getContent(event, location, fromDate, toDate)
+
+# Save the query to QueryDB
+queryDoc = { "query":query,
+             "date":datetime.datetime.utcnow(),
+             "articlesSize": len(arrayBSON),
+             "keys":{ "event":event,
+                      "location":location,
+                      "fromDate":fromDate,
+                      "toDate":toDate
+                    } }
+
+queryCollection.insert_one(queryDoc)
 #jsonContent = json.dumps(arrayBSON, ensure_ascii=False)
 
 for bSON in arrayBSON:
