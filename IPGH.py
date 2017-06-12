@@ -13,10 +13,6 @@ import datetime
 from   pymongo        import MongoClient
 from   pymongo.errors import DuplicateKeyError
 
-# Natural Language Toolkit
-import nltk
-from nltk.tag import StanfordNERTagger
-
 #Extractor
 from dataExtractors.theGuardianExtractor import TheGuardianExtractor
 
@@ -30,32 +26,19 @@ from dataExtractors.theGuardianExtractor import TheGuardianExtractor
 ###################################################################################################
 clear = lambda:os.system('clear')
 
-def InformationExtraction(sentence, useStanford=False):
+def Menu():
     """
-    This system takes the raw text of a document as its input, and generates a list of
-    (entity, relation, entity) tuples as its output.
+    Print Application Menu
     """
-    # Load NLTK Data
-    nltkPath = os.path.dirname(os.path.realpath(__file__)) + '/nltk_data'
-    nltk.data.path.append(nltkPath)
-
-    if not useStanford :
-        # Named Entity Recognition
-        ner = nltk.word_tokenize(sentence)
-        ner = nltk.pos_tag(ner)
-        ner = nltk.ne_chunk(ner)
-    else :
-        nerJar   = nltkPath + '/stanford/stanford-ner.jar'
-        nerModel = nltkPath + '/stanford/english.all.3class.distsim.crf.ser.gz'
-        ner      = StanfordNERTagger(nerModel, nerJar).tag(sentence)
-
-    return ner
-
+    clear()
+    print (32 * "-" , "LACLICHEV" , 32 * "-")
+    print(' Request content containing this free text.')
+    print(' Supports AND(&), OR(|) and NOT(!) operators, and exact phrase queries(>)')
+    print(' e.g. storm, heavy storm, snow & (rain | storms), storm & ! snow')
+    print (75 * "-")
 ###################################################################################################
 #MAIN
 ###################################################################################################
-clear()
-
 #Start MongoDB Client (Default Host)
 mongoDB = MongoClient().local
 
@@ -65,7 +48,6 @@ if 'ArchivedData' in mongoDB.collection_names():
 else:
     mongoDB.create_collection('ArchivedData')
     archivedCollection = mongoDB.ArchivedData
-    archivedCollection.create_index([('name', 'text')], unique=True)
 
 # Get the QueryCollection Collection
 if 'QueryDB' in mongoDB.collection_names():
@@ -74,36 +56,29 @@ else:
     mongoDB.create_collection('QueryDB')
     queryCollection = mongoDB.QueryDB
 
+# Print Menu
+Menu()
 # Get the search query
-query = "Storms in Guadalajara between 2000 and 2017"
-#query = input('What are you searching? ')
-info = InformationExtraction(query)
-#print(info)
+userInput = input('What are you searching? ')
 
-event    = info[0][0]
-location = info[2][0][0]
-fromDate = info[4][0]
-toDate   = info[6][0]
-
-arrayBSON = TheGuardianExtractor().getContent(event, location, fromDate, toDate)
+#Generate The Guardian Query
+theGuardian        = TheGuardianExtractor(userInput)
+theGuardianContent = theGuardian.getContent()
 
 # Save the query to QueryDB
-queryDoc = { "query":query,
+queryDoc = { "query":theGuardian.getQuery(),
              "date":datetime.datetime.utcnow(),
-             "articlesSize": len(arrayBSON),
-             "keys":{ "event":event,
-                      "location":location,
-                      "fromDate":fromDate,
-                      "toDate":toDate
-                    } }
+             "articlesSize": len(theGuardianContent),
+             "keys": theGuardian.getKeywords()
+           }
 
 queryCollection.insert_one(queryDoc)
 #jsonContent = json.dumps(arrayBSON, ensure_ascii=False)
 
-for bSON in arrayBSON:
+for bSON in theGuardianContent:
     try:
         archivedCollection.insert_one(bSON)
-        print('New: "{0}"'.format(bSON['name']))
+        #print('New: "{0}"'.format(bSON['name']))
     except DuplicateKeyError:
         print('Duplicated: "{0}"'.format(bSON['name']))
 
