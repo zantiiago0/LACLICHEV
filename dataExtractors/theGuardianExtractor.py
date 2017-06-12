@@ -79,6 +79,7 @@ class TheGuardianExtractor:
         bSONResult   = []
         weatherQuery = {'q':self.__query,
                         'show-fields':'body',
+                        'show-tags':'keyword',
                         'page-size':200,
                         'order-by':'newest',
                         'page':1
@@ -101,11 +102,16 @@ class TheGuardianExtractor:
                         docUrl     = itDoc['webUrl']
                         docDate    = itDoc['webPublicationDate']
                         docBody    = itDoc['fields']['body']
+                        docTags    = []
                         docContent = ""
-                        #Extract a Web Page
+                        #Extract the Web Page body content
                         for article in BeautifulSoup(docBody, 'lxml').find_all('p'):
                             docContent = docContent + article.get_text() + "\n"
-                        bSON = Document(docName, docUrl, docDate, docContent).dictDump()
+                        # Extract Tags
+                        for tag in itDoc['tags']:
+                            docTags.append(tag['sectionId'])
+                        # Create Document
+                        bSON = Document(docName, docUrl, docDate, docTags, docContent).dictDump()
                         bSONResult.append(bSON)
                     toolbarIt += 1
                     self.__printProgressBar(toolbarIt, toolbarLen, timeStamp, prefix='Retrieving: ')

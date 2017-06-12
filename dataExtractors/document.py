@@ -15,11 +15,12 @@ class Document(object):
     :Returns:
         - An instance of :class:`~dataExtractors.document`.
     """
-    def __init__(self, name, url, date, content):
+    def __init__(self, name, url, date, tags, content):
         self.name    = name
         self.url     = url
         self.date    = date
         self.content = content
+        self.tags    = list(set(tags))
 
     def dictDump(self):
         """
