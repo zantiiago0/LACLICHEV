@@ -1,3 +1,4 @@
 mongod.pid
 mongod.log
 mongodb/data/db
+dataIndexer/luceneIndex
