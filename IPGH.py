@@ -15,6 +15,8 @@ from   pymongo.errors import DuplicateKeyError
 #Extractor
 from dataExtractors.theGuardianExtractor import TheGuardianExtractor
 
+from dataIndexer.indexer import Indexer
+
 ###################################################################################################
 #CONSTANTS
 ###################################################################################################
@@ -66,6 +68,7 @@ def Menu():
     print(' Supports AND(&), OR(|) and NOT(!) operators, and exact phrase queries(>)')
     print(' e.g. storm, heavy storm, snow & (rain | storms), storm & ! snow')
     print (75 * "-")
+
 ###################################################################################################
 #MAIN
 ###################################################################################################
@@ -101,17 +104,25 @@ queryDoc = { "query":theGuardian.getQuery(),
              "articlesSize": len(theGuardianContent),
              "keys": theGuardian.getKeywords()
            }
-
 queryCollection.insert_one(queryDoc)
 
+print('Storing Content...')
 for bSON in theGuardianContent:
     try:
         archivedCollection.insert_one(bSON)
         #print('New: "{0}"'.format(bSON['name']))
     except DuplicateKeyError:
         print('Duplicated: "{0}"'.format(bSON['name']))
+print('Content Stored.')
 
 # Remove Duplicates
+print('Removing Duplicates...')
 RemoveDuplicates(archivedCollection)
+print('Duplicates Removed.')
 
+# Index Documents
+print('Indexing Documents...')
+documentIndexer = Indexer(verbose=True)
+documentIndexer.IndexDocument(*theGuardianContent)
+print('Indexing Done.')
 #END OF FILE
