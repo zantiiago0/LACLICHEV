@@ -5,7 +5,6 @@ This example deals with returning content of section.
 ###################################################################################################
 #IMPORTS
 ###################################################################################################
-#import json
 import os
 import datetime
 
@@ -25,6 +24,37 @@ from dataExtractors.theGuardianExtractor import TheGuardianExtractor
 #FUNCTIONS
 ###################################################################################################
 clear = lambda:os.system('clear')
+
+def RemoveDuplicates(mongoCollection):
+    """
+    Remove duplicated documents from a Mongo Collection
+
+    :Parameters:
+    - `mongoCollection`: Mongo Collection Object.
+    """
+    pipeline = [
+        {"$group": {
+            "_id": {
+                "name":"$name"
+            },
+            "uniqueIds": {
+                "$addToSet": "$_id"
+            },
+            "count": {
+                "$sum": 1
+            }}
+        }]
+
+    cursor = mongoCollection.aggregate(pipeline)
+    duplicatedIds = []
+    for doc in cursor:
+        # Keep one document
+        del doc["uniqueIds"][0]
+        # Get the duplicated document's ID
+        for duplicatedID in doc["uniqueIds"]:
+            duplicatedIds.append(duplicatedID)
+    # Delete all duplicated IDs
+    mongoCollection.remove({"_id": {"$in": duplicatedIds}})
 
 def Menu():
     """
@@ -73,7 +103,6 @@ queryDoc = { "query":theGuardian.getQuery(),
            }
 
 queryCollection.insert_one(queryDoc)
-#jsonContent = json.dumps(arrayBSON, ensure_ascii=False)
 
 for bSON in theGuardianContent:
     try:
@@ -81,5 +110,8 @@ for bSON in theGuardianContent:
         #print('New: "{0}"'.format(bSON['name']))
     except DuplicateKeyError:
         print('Duplicated: "{0}"'.format(bSON['name']))
+
+# Remove Duplicates
+RemoveDuplicates(archivedCollection)
 
 #END OF FILE
