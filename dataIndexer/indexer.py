@@ -1,5 +1,6 @@
 """
-Indexer
+Indexer Module
+
 
 About LuceneTM
 Is a high-performance, full-featured text search engine library written entirely in Java.
@@ -38,10 +39,17 @@ from org.apache.lucene.queryparser.classic import QueryParser
 ###################################################################################################
 class Indexer:
     """
-    The Guardian Extractor Class
+    Indexer Class
     """
+    (NAME, CONTENT, DATE, URL, TAGS) = ("name", "content", "date", "url", "tags")
 
     def __init__(self, indexDir="", debug=False, verbose=False):
+        """
+        :Parameters:
+        - `indexDir`: Path where the Index will be saved. (Str)
+        - `debug`: Create the Index in RAM Memory (indexDir will be ignored). (Boolean)
+        - `verbose`: Provide additional information about the initialization process. (Boolean)
+        """
         if indexDir != "":
             INDEX_DIR = indexDir
         else:
@@ -73,12 +81,30 @@ class Indexer:
 
     @staticmethod
     def __getTimestamp(dateTime):
+        """
+        Converts the document's date to an integer timestamp
+
+        :Parameters:
+        - `dateTime`: Document's date  (Str)
+
+        :Returns:
+        - Date timestamp (Int)
+        """
         tm    = time.strptime(dateTime, '%Y-%m-%dT%H:%M:%SZ')
         sTime = "{0:0>4}{1:0>2}{2:0>2}{3:0>2}{4:0>2}{5:0>2}".format(tm.tm_year, tm.tm_mon, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec)
         return int(sTime)
 
     @staticmethod
     def __getDateTime(timeStamp):
+        """
+        Converts the document's timestamp to date
+
+        :Parameters:
+        - `timeStamp`: Document's timestamp
+
+        :Returns:
+        - Date (Str)
+        """
         date = datetime.datetime(year=int(timeStamp[0:4]),
                                  month=int(timeStamp[4:6]),
                                  day=int(timeStamp[6:8]),
@@ -89,12 +115,28 @@ class Indexer:
 
     @staticmethod
     def __qualifyTags(tags):
+        """
+        Creates the qualify string for tags
+
+        :Parameters:
+        - `tags`: List of document's tags
+
+        :Return:
+        - Qualify Tags (Str)
+        """
         sTags = ""
         for tag in tags:
             sTags += tag + '|'
         return sTags[:-1]
 
     def IndexDocs(self, documents, verbose=False):
+        """
+        Index documents under the directory
+
+        :Parameters:
+        - `documents`: Documents to be indexed (List)
+        - `verbose`: Provide additional information about the indexation process. (Boolean)
+        """
         # Get the Writer Configuration
         writerConfig = IndexWriterConfig(StandardAnalyzer())
         # Get index writer
@@ -127,12 +169,20 @@ class Indexer:
         print("Indexed %d documents (%d docs in index)" % (len(documents), writer.numDocs()))
         writer.close()
 
-    def Search(self, query, maxResult=1000):
+    def Search(self, query, field=NAME, maxResult=1000):
+        """
+        Search for a document into the Lucene's Index
+
+        :Parameters:
+        - `query`: Request to be made to the Index (Str).
+        - `field`: Field to be consulted by the query (NAME, CONTENT, DATE, URL, TAGS).
+        - `maxResult`: Maximum number of results.
+        """
         # Get the Index Directory
         reader      = DirectoryReader.open(self.__indexDir)
         searcher    = IndexSearcher(reader)
         # Create a query
-        queryParser = QueryParser("tags", StandardAnalyzer()).parse(query)
+        queryParser = QueryParser(field, StandardAnalyzer()).parse(query)
         # Do a search
         hits        = searcher.search(queryParser, maxResult)
         print("Found %d document(s) that matched query '%s':" % (hits.totalHits, queryParser))

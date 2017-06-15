@@ -65,7 +65,7 @@ def Menu():
     clear()
     print (32 * "-" , "LACLICHEV" , 32 * "-")
     print(' Request content containing this free text.')
-    print(' Supports AND(&), OR(|) and NOT(!) operators, and exact phrase queries(>)')
+    print(' Supports AND(&), OR(|) and NOT(!) operators, and exact phrase queries')
     print(' e.g. storm, heavy storm, snow & (rain | storms), storm & ! snow')
     print (75 * "-")
 
@@ -106,23 +106,28 @@ queryDoc = { "query":theGuardian.getQuery(),
            }
 queryCollection.insert_one(queryDoc)
 
-print('Storing Content...')
-for bSON in theGuardianContent:
-    try:
-        archivedCollection.insert_one(bSON)
-        #print('New: "{0}"'.format(bSON['name']))
-    except DuplicateKeyError:
-        print('Duplicated: "{0}"'.format(bSON['name']))
-print('Content Stored.')
+if len(theGuardianContent) > 0:
+    print('Storing Content...')
+    for bSON in theGuardianContent:
+        try:
+            archivedCollection.insert_one(bSON)
+            #print('New: "{0}"'.format(bSON['name']))
+        except DuplicateKeyError:
+            print('Duplicated: "{0}"'.format(bSON['name']))
+    print('Content Stored.')
 
-# Remove Duplicates
-print('Removing Duplicates...')
-RemoveDuplicates(archivedCollection)
-print('Duplicates Removed.')
+    # Remove Duplicates
+    print('Removing Duplicates...')
+    RemoveDuplicates(archivedCollection)
+    print('Duplicates Removed.')
 
-# Index Documents
-print('Indexing Documents...')
-documentIndexer = Indexer(verbose=True)
-documentIndexer.IndexDocument(*theGuardianContent)
-print('Indexing Done.')
+    # Index Documents
+    print('Indexing Documents...')
+    documentIndexer = Indexer(debug=True, verbose=True)
+    documentIndexer.IndexDocs(theGuardianContent)
+    print('Indexing Done.')
+
+
+    documentIndexer.Search("music", Indexer.TAGS)
+
 #END OF FILE

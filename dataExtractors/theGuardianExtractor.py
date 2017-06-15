@@ -19,6 +19,11 @@ class TheGuardianExtractor:
     """
 
     def __init__(self, query):
+        """
+        :Parameters:
+        - `query`: Request to be made to The Guardian API. (Str)
+                   Supports AND(&), OR(|) and NOT(!) operators, and exact phrase queries.
+        """
         self.__contentTAG = 'content__article-body from-content-api js-article__body'
         self.__API        = 'b90595fd-be2a-4488-88bd-538a28af1be2'
         self.__keywords   = []
@@ -73,8 +78,11 @@ class TheGuardianExtractor:
         Returns an array of Documents obtained by the query to The Guardian.
 
         :Parameters:
-        - `fromDate`:
-        - `toDate`:
+        - `fromDate`: The start date for the search.
+        - `toDate`: The end date for the search.
+
+        :Return:
+        - List of retrieved documents
         """
         bSONResult   = []
         weatherQuery = {'q':self.__query,
@@ -125,7 +133,7 @@ class TheGuardianExtractor:
         else:
             print("No results found")
 
-        return bSONResult
+        return bSONResult if isinstance(bSONResult, list) else [bSONResult]
 
     def getQuery(self):
         """
