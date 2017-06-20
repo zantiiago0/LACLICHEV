@@ -21,17 +21,16 @@ import datetime
 # Lucene
 import lucene
 
-from java.nio.file                         import Paths
-from org.apache.lucene.analysis.standard   import StandardAnalyzer
-from org.apache.lucene.document            import Document, TextField, Field, LongPoint, StringField, FieldType
-from org.apache.lucene.index               import IndexWriter, IndexWriterConfig, IndexReader, DirectoryReader, Term, IndexOptions, TermsEnum
-from org.apache.lucene.store               import SimpleFSDirectory, RAMDirectory
-from org.apache.lucene.util                import BytesRefIterator
-from org.apache.lucene.search              import IndexSearcher
-from org.apache.lucene.queryparser.classic import QueryParser
-
-# Numpy
-import numpy as np
+from java.nio.file                              import Paths
+from org.apache.lucene.analysis.standard        import StandardAnalyzer
+from org.apache.lucene.analysis.snowball        import SnowballFilter
+from org.apache.lucene.analysis.tokenattributes import CharTermAttribute
+from org.apache.lucene.document                 import Document, TextField, Field, LongPoint, StringField, FieldType
+from org.apache.lucene.index                    import IndexWriter, IndexWriterConfig, IndexReader, DirectoryReader, Term, IndexOptions, TermsEnum
+from org.apache.lucene.store                    import SimpleFSDirectory, RAMDirectory
+from org.apache.lucene.util                     import BytesRefIterator
+from org.apache.lucene.search                   import IndexSearcher
+from org.apache.lucene.queryparser.classic      import QueryParser
 
 ###################################################################################################
 #CONSTANTS
@@ -235,7 +234,34 @@ class Indexer:
             print("Tags: " + doc.get('tags') + "\n")
         reader.close()
 
-    def FreqMatrix(self, verbose=False, saveMtx=False):
+    def StemDocument(self, docIdx):
+        """
+        Return an array of the document's stemmed terms
+
+        :Parameters:
+        - `docIdx`: Document's index ID (Int).
+        """
+        stemmedTerms = []
+        reader       = DirectoryReader.open(self.__indexDir)
+        doc          = reader.document(docIdx)
+        tknStream    = self.__analyzer.tokenStream(Indexer.CONTENT, doc.get(Indexer.CONTENT))
+        stemmed      = SnowballFilter(tknStream, "English")
+        stemmed.reset()
+        while stemmed.incrementToken():
+            stemmedTerms.append(stemmed.getAttribute(CharTermAttribute.class_).toString())
+
+        tknStream.close()
+        reader.close()
+        return stemmedTerms
+
+    def FreqMatrix(self, saveMtx=False, verbose=False, ):
+        """
+        Generates a Frequency Matrix of the current Index
+
+        :Parameters:
+        - `saveMtx`: Save the Frequency Matrix to a .txt file. (Boolean)
+        - `verbose`: Provide additional information about the initialization process. (Boolean)
+        """
         freqDict  = {}
         reader    = DirectoryReader.open(self.__indexDir)
         numDocs   = reader.numDocs()
@@ -244,34 +270,28 @@ class Indexer:
         self.__printProgressBar(0, numDocs - 1, timeStamp, prefix='Progress:')
         for docIdx in range(numDocs):
             doc      = reader.document(docIdx)
-            termSize = reader.getTermVector(docIdx, Indexer.CONTENT).size()
-            termItr  = reader.getTermVector(docIdx, Indexer.CONTENT).iterator()
+            termItr  = self.StemDocument(docIdx)
+            termSize = len(termItr)
+            docStr   = '{0}'.format(docIdx)
             if verbose:
                 print("Processing file: %s - Terms: %d" % (doc.get(Indexer.NAME), termSize))
-            for term in BytesRefIterator.cast_(termItr):
-                termText     = term.utf8ToString()
+            for termText in termItr:
                 try:
-                    freqDict[termText].append(docIdx)
+                    termCount = freqDict[termText][docStr]
+                    freqDict[termText].update({ docStr : termCount + 1 })
                 except KeyError:
-                    termIdx      = {termText:[docIdx]}
+                    termIdx      = { termText : { docStr : 1 } }
                     freqDict.update(termIdx)
-
-                if verbose:
-                    termInstance = Term(Indexer.CONTENT, term)
-                    # Total number of occurrences of term across all documents
-                    termFreq     = reader.totalTermFreq(termInstance)
-                    # Number of documents containing the term.
-                    docCount     = reader.docFreq(termInstance)
-                    print("term: %s, termFreq = %d, docCount = %d" % (termText, termFreq, docCount))
             self.__printProgressBar(docIdx, numDocs - 1, timeStamp, prefix='Progress:')
 
         if saveMtx:
-            fMatrix   = open(os.path.dirname(os.path.realpath(__file__)) + "/freqMtx.txt", 'w')
-            numWords  = len(freqDict)
-            timeStamp = time.clock()
-            wordsIt   = 0
+            pathMatrix = os.path.dirname(os.path.realpath(__file__)) + "/freqMtx.txt"
+            fMatrix    = open(pathMatrix, 'w')
+            numWords   = len(freqDict)
+            timeStamp  = time.clock()
+            wordsIt    = 0
 
-            print("Generating Frequency Matrix File...")
+            print("Saving Frequency Matrix File: ", pathMatrix)
             self.__printProgressBar(wordsIt, numWords, timeStamp, prefix='Progress:')
             # File Generation Start
             print("+========= Frequency Matrix =========+", file=fMatrix)
@@ -279,21 +299,20 @@ class Indexer:
             for docIdx in range(numDocs):
                 print("D{0:0>4}".format(docIdx), end=' ', file=fMatrix)
             print(file=fMatrix)
-            for word in freqDict:
+            for word in sorted(freqDict):
                 print("%20s" % (word), end=' ', file=fMatrix)
-                docIt = 0
                 for docIdx in range(reader.numDocs()):
-                    if docIdx == freqDict[word][docIt]:
-                        print("  1  ", end=' ', file=fMatrix)
-                        docIt = docIt + 1 if docIt < (len(freqDict[word]) - 1) else docIt
-                    else:
+                    try:
+                        termCount = freqDict[word][str(docIdx)]
+                        print("  %d  " % (termCount), end=' ', file=fMatrix)
+                    except KeyError:
                         print("  0  ", end=' ', file=fMatrix)
                 print(file=fMatrix)
                 wordsIt += 1
                 self.__printProgressBar(wordsIt, numWords, timeStamp, prefix='Progress:')
+            # Close File
+            fMatrix.close()
 
-        # Close File
-        fMatrix.close()
         # Close IndexReader
         reader.close()
 
@@ -311,8 +330,7 @@ if __name__ == "__main__":
     os.system('clear')
 
     documentIndexer = Indexer(verbose=True)
-
-    documentIndexer.FreqMatrix()
+    documentIndexer.FreqMatrix(saveMtx=True)
 ###################################################################################################
 #END OF FILE
 ###################################################################################################

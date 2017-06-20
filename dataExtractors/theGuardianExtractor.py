@@ -82,7 +82,7 @@ class TheGuardianExtractor:
         - `toDate`: The end date for the search.
 
         :Return:
-        - List of retrieved documents
+        - List of retrieved documents.
         """
         bSONResult   = []
         weatherQuery = {'q':self.__query,

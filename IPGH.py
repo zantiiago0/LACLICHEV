@@ -15,6 +15,7 @@ from   pymongo.errors import DuplicateKeyError
 #Extractor
 from dataExtractors.theGuardianExtractor import TheGuardianExtractor
 
+#Indexer
 from dataIndexer.indexer import Indexer
 
 ###################################################################################################
@@ -107,27 +108,28 @@ queryDoc = { "query":theGuardian.getQuery(),
 queryCollection.insert_one(queryDoc)
 
 if len(theGuardianContent) > 0:
-    print('Storing Content...')
+    print('\nStoring Content...')
     for bSON in theGuardianContent:
         try:
             archivedCollection.insert_one(bSON)
             #print('New: "{0}"'.format(bSON['name']))
         except DuplicateKeyError:
             print('Duplicated: "{0}"'.format(bSON['name']))
-    print('Content Stored.')
+    print('Content Stored.\n')
 
     # Remove Duplicates
     print('Removing Duplicates...')
     RemoveDuplicates(archivedCollection)
-    print('Duplicates Removed.')
+    print('Duplicates Removed.\n')
 
     # Index Documents
     print('Indexing Documents...')
     documentIndexer = Indexer(debug=True, verbose=True)
     documentIndexer.IndexDocs(theGuardianContent)
-    print('Indexing Done.')
+    print('Indexing Done.\n')
 
+    documentIndexer.FreqMatrix()
 
-    documentIndexer.Search("music", Indexer.TAGS)
-
+    print("\nSearching documents with Tag : Weather")
+    documentIndexer.Search("weather", Indexer.TAGS)
 #END OF FILE
