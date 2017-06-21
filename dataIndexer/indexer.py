@@ -32,6 +32,12 @@ from org.apache.lucene.util                     import BytesRefIterator
 from org.apache.lucene.search                   import IndexSearcher
 from org.apache.lucene.queryparser.classic      import QueryParser
 
+# Natural Language Toolkit
+import nltk
+
+# Geocoding
+from geopy.geocoders import GoogleV3
+
 ###################################################################################################
 #CONSTANTS
 ###################################################################################################
@@ -316,6 +322,48 @@ class Indexer:
         # Close IndexReader
         reader.close()
 
+    def AnalyzeDocument(self, docIdx):
+        """
+        Generates a list of (entity, relation, entity) tuples as its output.
+
+        :Parameters:
+        - `docIdx`: Document's index ID (Int).
+        """
+        gpeList    = {}
+        geolocator = GoogleV3()
+        reader     = DirectoryReader.open(self.__indexDir)
+        doc        = reader.document(docIdx)
+        # Load NLTK Data
+        nltkPath = os.path.dirname(os.path.realpath(__file__)) + '/../nltk_data'
+        nltk.data.path.append(nltkPath)
+
+        # Named Entity Recognition
+        content   = doc.get(Indexer.CONTENT)
+        sentences = nltk.sent_tokenize(content)
+        # Loop over each sentence and tokenize it separately
+        for sentence in sentences:
+            ner = nltk.word_tokenize(sentence)
+            ner = nltk.pos_tag(ner)
+            ner = nltk.ne_chunk(ner)
+            # Get all the Geo-Political Entities
+            for subtrees in list(ner.subtrees(filter=lambda subtree: subtree.label()=='GPE')):
+                for gpe in subtrees:
+                    if not gpe[0] in gpeList:
+                        location = geolocator.geocode(gpe[0])
+                        if ('locality' in location.raw['types'][0]) or ('country' in location.raw['types'][0]) or ('administrative' in location.raw['types'][0]):
+                            gpe = { gpe[0]: { 'location':location.address,
+                                              'latitude':location.latitude,
+                                              'longitude':location.longitude } }
+                        else:
+                            for raw in location.raw['address_components']:
+                                if (('locality' in raw['types'][0]) or ('country' in raw['types'][0]) or ('administrative' in raw['types'][0])) and (gpe[0] in raw['long_name']):
+                                    gpe = { gpe[0]: { 'location':raw['long_name'],
+                                                      'latitude':location.latitude,
+                                                      'longitude':location.longitude } }
+                                    break
+                        gpeList.update(gpe)
+
+        return gpeList
 ###################################################################################################
 #TEST
 ###################################################################################################
@@ -330,7 +378,23 @@ if __name__ == "__main__":
     os.system('clear')
 
     documentIndexer = Indexer(verbose=True)
-    documentIndexer.FreqMatrix(saveMtx=True)
+    cities = documentIndexer.AnalyzeDocument(0)
+
+    import webbrowser
+
+    html = ''
+    for city, value in cities.items():
+        api  = "AIzaSyAelNyWCvnF0s2g8gfhwN31jFuCGeNjs3s"
+        url  = "https://www.google.com/maps/embed/v1/place?key={0}&q={1}&center={2},{3}".format(api, value['location'], value['latitude'], value['longitude'])
+        html += '<iframe width="600" height="450" frameborder="0" style="border:0" src="{0}" allowfullscreen></iframe>\n'.format(url)
+
+    path = os.path.abspath('maps.html')
+    url = 'file://' + path
+    with open(path, 'w') as f:
+        f.write(html)
+        #Open url in new tab if possible
+        webbrowser.open_new_tab(url)
+
 ###################################################################################################
 #END OF FILE
 ###################################################################################################
