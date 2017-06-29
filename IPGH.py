@@ -8,56 +8,25 @@ This example deals with returning content of section.
 import os
 import datetime
 
-#MongoDB
-from   pymongo        import MongoClient
-from   pymongo.errors import DuplicateKeyError
-
 #Extractor
 from dataExtractors.theGuardianExtractor import TheGuardianExtractor
 
 #Indexer
 from dataIndexer.indexer import Indexer
 
+#DB
+from dataDB.dbHandler import DBHandler
+
 ###################################################################################################
 #CONSTANTS
 ###################################################################################################
-
+archivedDB = DBHandler('ArchivedDB')
+queryDB    = DBHandler('QueryDB')
 
 ###################################################################################################
 #FUNCTIONS
 ###################################################################################################
 clear = lambda:os.system('clear')
-
-def RemoveDuplicates(mongoCollection):
-    """
-    Remove duplicated documents from a Mongo Collection
-
-    :Parameters:
-    - `mongoCollection`: Mongo Collection Object.
-    """
-    pipeline = [
-        {"$group": {
-            "_id": {
-                "name":"$name"
-            },
-            "uniqueIds": {
-                "$addToSet": "$_id"
-            },
-            "count": {
-                "$sum": 1
-            }}
-        }]
-
-    cursor = mongoCollection.aggregate(pipeline)
-    duplicatedIds = []
-    for doc in cursor:
-        # Keep one document
-        del doc["uniqueIds"][0]
-        # Get the duplicated document's ID
-        for duplicatedID in doc["uniqueIds"]:
-            duplicatedIds.append(duplicatedID)
-    # Delete all duplicated IDs
-    mongoCollection.remove({"_id": {"$in": duplicatedIds}})
 
 def Menu():
     """
@@ -73,23 +42,6 @@ def Menu():
 ###################################################################################################
 #MAIN
 ###################################################################################################
-#Start MongoDB Client (Default Host)
-mongoDB = MongoClient().local
-
-# Get the ArchivedData Collection
-if 'ArchivedData' in mongoDB.collection_names():
-    archivedCollection = mongoDB.ArchivedData
-else:
-    mongoDB.create_collection('ArchivedData')
-    archivedCollection = mongoDB.ArchivedData
-
-# Get the QueryCollection Collection
-if 'QueryDB' in mongoDB.collection_names():
-    queryCollection = mongoDB.QueryDB
-else:
-    mongoDB.create_collection('QueryDB')
-    queryCollection = mongoDB.QueryDB
-
 # Print Menu
 Menu()
 # Get the search query
@@ -105,21 +57,17 @@ queryDoc = { "query":theGuardian.getQuery(),
              "articlesSize": len(theGuardianContent),
              "keys": theGuardian.getKeywords()
            }
-queryCollection.insert_one(queryDoc)
+queryDB.Insert(queryDoc)
 
 if len(theGuardianContent) > 0:
     print('\nStoring Content...')
-    for bSON in theGuardianContent:
-        try:
-            archivedCollection.insert_one(bSON)
-            #print('New: "{0}"'.format(bSON['name']))
-        except DuplicateKeyError:
-            print('Duplicated: "{0}"'.format(bSON['name']))
+    archivedDB.Insert(theGuardianContent)
+
     print('Content Stored.\n')
 
     # Remove Duplicates
     print('Removing Duplicates...')
-    RemoveDuplicates(archivedCollection)
+    archivedDB.RemoveDuplicates('name')
     print('Duplicates Removed.\n')
 
     # Index Documents
