@@ -17,6 +17,8 @@ to use Lucene's text indexing and searching capabilities from Python
 import os
 import time
 import datetime
+import math
+import sys
 
 # Lucene
 import lucene
@@ -38,12 +40,20 @@ import nltk
 # Geocoding
 from geopy.geocoders import GoogleV3
 
+path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if not path in sys.path:
+    sys.path.insert(1, path)
+del path
+
+#DB
+from dataDB.dbHandler import DBHandler
+
 ###################################################################################################
 #CONSTANTS
 ###################################################################################################
 
 ###################################################################################################
-#FUNCTIONS
+#CLASS
 ###################################################################################################
 class Indexer:
     """
@@ -260,7 +270,7 @@ class Indexer:
         reader.close()
         return stemmedTerms
 
-    def FreqMatrix(self, saveMtx=False, verbose=False, ):
+    def FreqMatrix(self, byTerms=True, saveMtx=False, verbose=False):
         """
         Generates a Frequency Matrix of the current Index
 
@@ -268,7 +278,7 @@ class Indexer:
         - `saveMtx`: Save the Frequency Matrix to a .txt file. (Boolean)
         - `verbose`: Provide additional information about the initialization process. (Boolean)
         """
-        freqDict  = {}
+        freqMtx   = {} # Terms - DocumentID Matrix
         reader    = DirectoryReader.open(self.__indexDir)
         numDocs   = reader.numDocs()
         timeStamp = time.clock()
@@ -279,21 +289,40 @@ class Indexer:
             termItr  = self.StemDocument(docIdx)
             termSize = len(termItr)
             docStr   = '{0}'.format(docIdx)
+            termDict = {}
             if verbose:
                 print("Processing file: %s - Terms: %d" % (doc.get(Indexer.NAME), termSize))
             for termText in termItr:
-                try:
-                    termCount = freqDict[termText][docStr]
-                    freqDict[termText].update({ docStr : termCount + 1 })
-                except KeyError:
-                    termIdx      = { termText : { docStr : 1 } }
-                    freqDict.update(termIdx)
+                if byTerms:
+                    # Check if the term exists
+                    if termText in freqMtx:
+                        # Check if the document exists
+                        if docStr in freqMtx[termText]:
+                            termCount = int(math.ceil(((freqMtx[termText][docStr] * termSize) / 100)))
+                            freqMtx[termText].update({ docStr : ((termCount + 1) / termSize) * 100 })
+                        else:
+                            freqMtx[termText].update({ docStr : (1 / termSize) * 100 })
+                    else:
+                        termIdx = { termText : { docStr : (1 / termSize) * 100 } }
+                        freqMtx.update(termIdx)
+                else:
+                    # Check if the term exists
+                    # :TODO Replace '.' from terms
+                    termText = termText.replace('.', '_')
+                    if termText in termDict:
+                        termCount          = int(math.ceil((termDict[termText] * termSize) / 100))
+                        termDict[termText] = ((termCount + 1) / termSize) * 100
+                    else:
+                        termIdx = { termText : (1 / termSize) * 100 }
+                        termDict.update(termIdx)
+            if not byTerms:
+                freqMtx.update({docStr : termDict})
             self.__printProgressBar(docIdx, numDocs - 1, timeStamp, prefix='Progress:')
 
-        if saveMtx:
+        if saveMtx and byTerms:
             pathMatrix = os.path.dirname(os.path.realpath(__file__)) + "/freqMtx.txt"
             fMatrix    = open(pathMatrix, 'w')
-            numWords   = len(freqDict)
+            numWords   = len(freqMtx)
             timeStamp  = time.clock()
             wordsIt    = 0
 
@@ -305,12 +334,12 @@ class Indexer:
             for docIdx in range(numDocs):
                 print("D{0:0>4}".format(docIdx), end=' ', file=fMatrix)
             print(file=fMatrix)
-            for word in sorted(freqDict):
+            for word in sorted(freqMtx):
                 print("%20s" % (word), end=' ', file=fMatrix)
                 for docIdx in range(reader.numDocs()):
                     try:
-                        termCount = freqDict[word][str(docIdx)]
-                        print("  %d  " % (termCount), end=' ', file=fMatrix)
+                        termCount = freqMtx[word][str(docIdx)]
+                        print("%02.03f" % (termCount), end=' ', file=fMatrix)
                     except KeyError:
                         print("  0  ", end=' ', file=fMatrix)
                 print(file=fMatrix)
@@ -321,6 +350,7 @@ class Indexer:
 
         # Close IndexReader
         reader.close()
+        return freqMtx
 
     def AnalyzeDocument(self, docIdx):
         """
@@ -364,6 +394,7 @@ class Indexer:
                         gpeList.update(gpe)
 
         return gpeList
+
 ###################################################################################################
 #TEST
 ###################################################################################################
@@ -376,10 +407,26 @@ if __name__ == "__main__":
     https://www.adictosaltrabajo.com/tutoriales/lucene-ana-lyzers-stemming-more-like-this/
     """
     os.system('clear')
-
+    """
     documentIndexer = Indexer(verbose=True)
-    cities = documentIndexer.AnalyzeDocument(0)
+    
+    matrix          = documentIndexer.FreqMatrix()
+    matrixDB        = DBHandler('TermsDB')
+    for value in sorted(matrix):
+        doc = { 'stem' : value,
+                'docs' : matrix[value] }
+        matrixDB.Insert(doc)
+    del matrixDB
+    """
+    """
+    matrixDB = DBHandler('DocsDB')
+    matrix   = documentIndexer.FreqMatrix(byTerms=False)
+    for value in matrix:
+        doc = { 'doc'   : int(value),
+                'stems' : matrix[value] }
+        matrixDB.Insert(doc)
 
+    cities = documentIndexer.AnalyzeDocument(0)
     import webbrowser
 
     html = ''
@@ -394,7 +441,7 @@ if __name__ == "__main__":
         f.write(html)
         #Open url in new tab if possible
         webbrowser.open_new_tab(url)
-
+    """
 ###################################################################################################
 #END OF FILE
 ###################################################################################################
