@@ -19,7 +19,6 @@ from pymongo import MongoClient
 class DBHandler:
     """
     DataBase Handler Class
-    :TODO Close Mongo Client Connection
     """
 
     def __init__(self, dbName):
@@ -37,7 +36,7 @@ class DBHandler:
             self.__mongoDB.create_collection(dbName)
             self.__collection = self.__mongoDB[dbName]
 
-    def RemoveDuplicates(self, keyName):
+    def RemoveDuplicatesBy(self, keyName):
         """
         Remove duplicated documents from a Collection
         """
@@ -77,6 +76,25 @@ class DBHandler:
         else:
             for bSON in data:
                 self.__collection.insert_one(bSON)
+
+    def GetDocuments(self):
+        """
+        Get all documents of the Collection
+        """
+        dataList = []
+        cursor  = self.__collection.find({})
+        for document in cursor:
+            dataList.append(document)
+
+        return dataList
+
+    def Empty(self):
+        """
+        Remove all documents of the Collection
+        """
+        self.__collection.drop()
+
+
 ###################################################################################################
 #TEST
 ###################################################################################################

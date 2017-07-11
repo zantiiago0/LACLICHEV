@@ -276,7 +276,7 @@ class Indexer:
 
         :Parameters:
         - `saveMtx`: Save the Frequency Matrix to a .txt file. (Boolean)
-        - `verbose`: Provide additional information about the initialization process. (Boolean)
+        - `verbose`: Provide additional information about the generation process. (Boolean)
         """
         freqMtx   = {} # Terms - DocumentID Matrix
         reader    = DirectoryReader.open(self.__indexDir)
@@ -307,7 +307,6 @@ class Indexer:
                         freqMtx.update(termIdx)
                 else:
                     # Check if the term exists
-                    # :TODO Replace '.' from terms
                     termText = termText.replace('.', '_')
                     if termText in termDict:
                         termCount          = int(math.ceil((termDict[termText] * termSize) / 100))
@@ -379,19 +378,14 @@ class Indexer:
             for subtrees in list(ner.subtrees(filter=lambda subtree: subtree.label()=='GPE')):
                 for gpe in subtrees:
                     if not gpe[0] in gpeList:
-                        location = geolocator.geocode(gpe[0])
-                        if ('locality' in location.raw['types'][0]) or ('country' in location.raw['types'][0]) or ('administrative' in location.raw['types'][0]):
+                        try:
+                            location = geolocator.geocode(gpe[0])
                             gpe = { gpe[0]: { 'location':location.address,
                                               'latitude':location.latitude,
                                               'longitude':location.longitude } }
-                        else:
-                            for raw in location.raw['address_components']:
-                                if (('locality' in raw['types'][0]) or ('country' in raw['types'][0]) or ('administrative' in raw['types'][0])) and (gpe[0] in raw['long_name']):
-                                    gpe = { gpe[0]: { 'location':raw['long_name'],
-                                                      'latitude':location.latitude,
-                                                      'longitude':location.longitude } }
-                                    break
-                        gpeList.update(gpe)
+                            gpeList.update(gpe)
+                        except:
+                            print('Exceed')
 
         return gpeList
 
@@ -407,9 +401,9 @@ if __name__ == "__main__":
     https://www.adictosaltrabajo.com/tutoriales/lucene-ana-lyzers-stemming-more-like-this/
     """
     os.system('clear')
-    """
+
     documentIndexer = Indexer(verbose=True)
-    
+    """
     matrix          = documentIndexer.FreqMatrix()
     matrixDB        = DBHandler('TermsDB')
     for value in sorted(matrix):
@@ -425,8 +419,8 @@ if __name__ == "__main__":
         doc = { 'doc'   : int(value),
                 'stems' : matrix[value] }
         matrixDB.Insert(doc)
-
-    cities = documentIndexer.AnalyzeDocument(0)
+    """
+    cities = documentIndexer.AnalyzeDocument(1)
     import webbrowser
 
     html = ''
@@ -441,7 +435,7 @@ if __name__ == "__main__":
         f.write(html)
         #Open url in new tab if possible
         webbrowser.open_new_tab(url)
-    """
+    
 ###################################################################################################
 #END OF FILE
 ###################################################################################################

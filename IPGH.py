@@ -7,6 +7,7 @@ This example deals with returning content of section.
 ###################################################################################################
 import os
 import datetime
+import webbrowser
 
 #Extractor
 from dataExtractors.theGuardianExtractor import TheGuardianExtractor
@@ -62,13 +63,11 @@ queryDB.Insert(queryDoc)
 if len(theGuardianContent) > 0:
     print('\nStoring Content...')
     archivedDB.Insert(theGuardianContent)
-
     print('Content Stored.\n')
+    archivedDB.RemoveDuplicatesBy('name')
 
-    # Remove Duplicates
-    print('Removing Duplicates...')
-    archivedDB.RemoveDuplicates('name')
-    print('Duplicates Removed.\n')
+    theGuardianContent = archivedDB.GetDocuments()
+    archivedDB.Empty()
 
     # Index Documents
     print('Indexing Documents...')
@@ -76,8 +75,26 @@ if len(theGuardianContent) > 0:
     documentIndexer.IndexDocs(theGuardianContent)
     print('Indexing Done.\n')
 
+    #Generate Frequency Matrix
     documentIndexer.FreqMatrix()
 
+    #Do a index search
     print("\nSearching documents with Tag : Weather")
     documentIndexer.Search("weather", Indexer.TAGS)
+
+    #Analyze Document (DEMO)
+    cities = documentIndexer.AnalyzeDocument(0)
+
+    #Generate HTML
+    html = ''
+    for city, value in cities.items():
+        api  = "AIzaSyAelNyWCvnF0s2g8gfhwN31jFuCGeNjs3s"
+        url  = "https://www.google.com/maps/embed/v1/place?key={0}&q={1}&center={2},{3}".format(api, value['location'], value['latitude'], value['longitude'])
+        html += '<iframe width="600" height="450" frameborder="0" style="border:0" src="{0}" allowfullscreen></iframe>\n'.format(url)
+    path = os.path.abspath('maps.html')
+    url = 'file://' + path
+    with open(path, 'w') as f:
+        f.write(html)
+        #Open url in new tab if possible
+        webbrowser.open_new_tab(url)
 #END OF FILE
