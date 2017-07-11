@@ -2,7 +2,7 @@
 Document Object Definition
 """
 
-class Document(object):
+class EDocument(object):
     """
     Contains all the article information to be stored in the database.
 

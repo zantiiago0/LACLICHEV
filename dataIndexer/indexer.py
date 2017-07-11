@@ -45,9 +45,8 @@ if not path in sys.path:
     sys.path.insert(1, path)
 del path
 
-#DB
-from dataDB.dbHandler import DBHandler
-
+from dataDB.dbHandler  import DBHandler
+from tools.progressBar import ProgressBar
 ###################################################################################################
 #CONSTANTS
 ###################################################################################################
@@ -160,32 +159,6 @@ class Indexer:
             sTags += tag + '|'
         return sTags[:-1]
 
-    @staticmethod
-    def __printProgressBar(iteration, total, tStamp, prefix='', decimals=1, length=50, fill='█'):
-        """
-        Call in a loop to create terminal progress bar
-
-        :Parameters:
-        - `iteration`: Current iteration (Int)
-        - `total`: Total iterations (Int)
-        - `tStamp`: Start time (Int)
-        - `prefix` (optional): Prefix string (Str)
-        - `suffix` (optional): Suffix string (Str)
-        - `decimals` (optional): Positive number of decimals in percent complete (Int)
-        - `length` (optional): Character length of bar (Int)
-        - `fill` (optional): Bar fill character (Str)
-
-        :Returns:
-        """
-        percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
-        filledLength = int(length * iteration // total)
-        progress = fill * filledLength + '-' * (length - filledLength)
-        timeStamp = time.clock() - tStamp
-        print('\r%s |%s| %s%% - %.3fs - %d of %d' % (prefix, progress, percent, timeStamp, iteration, total), end = '\r')
-        # Print New Line on Complete
-        if iteration == total:
-            print()
-
     def IndexDocs(self, documents, verbose=False):
         """
         Index documents under the directory
@@ -281,9 +254,8 @@ class Indexer:
         freqMtx   = {} # Terms - DocumentID Matrix
         reader    = DirectoryReader.open(self.__indexDir)
         numDocs   = reader.numDocs()
-        timeStamp = time.clock()
         print("Generating Frequency Matrix...")
-        self.__printProgressBar(0, numDocs - 1, timeStamp, prefix='Progress:')
+        pB = ProgressBar(numDocs - 1, prefix='Progress:')
         for docIdx in range(numDocs):
             doc      = reader.document(docIdx)
             termItr  = self.StemDocument(docIdx)
@@ -316,17 +288,14 @@ class Indexer:
                         termDict.update(termIdx)
             if not byTerms:
                 freqMtx.update({docStr : termDict})
-            self.__printProgressBar(docIdx, numDocs - 1, timeStamp, prefix='Progress:')
+            pB.updateProgress()
 
         if saveMtx and byTerms:
             pathMatrix = os.path.dirname(os.path.realpath(__file__)) + "/freqMtx.txt"
             fMatrix    = open(pathMatrix, 'w')
-            numWords   = len(freqMtx)
-            timeStamp  = time.clock()
-            wordsIt    = 0
 
             print("Saving Frequency Matrix File: ", pathMatrix)
-            self.__printProgressBar(wordsIt, numWords, timeStamp, prefix='Progress:')
+            pB = ProgressBar(len(freqMtx), prefix='Progress:')
             # File Generation Start
             print("+========= Frequency Matrix =========+", file=fMatrix)
             print("%20s" % (' '), end=' ', file=fMatrix)
@@ -342,8 +311,7 @@ class Indexer:
                     except KeyError:
                         print("  0  ", end=' ', file=fMatrix)
                 print(file=fMatrix)
-                wordsIt += 1
-                self.__printProgressBar(wordsIt, numWords, timeStamp, prefix='Progress:')
+                pB.updateProgress()
             # Close File
             fMatrix.close()
 
@@ -369,6 +337,11 @@ class Indexer:
         # Named Entity Recognition
         content   = doc.get(Indexer.CONTENT)
         sentences = nltk.sent_tokenize(content)
+
+        #ProgressBar
+        print("Analazing Document {0}".format(docIdx))
+        
+        pB = ProgressBar(len(sentences), prefix='Progress:')
         # Loop over each sentence and tokenize it separately
         for sentence in sentences:
             ner = nltk.word_tokenize(sentence)
@@ -386,6 +359,7 @@ class Indexer:
                             gpeList.update(gpe)
                         except:
                             print('Exceed')
+            pB.updateProgress()
 
         return gpeList
 
@@ -435,7 +409,7 @@ if __name__ == "__main__":
         f.write(html)
         #Open url in new tab if possible
         webbrowser.open_new_tab(url)
-    
+
 ###################################################################################################
 #END OF FILE
 ###################################################################################################

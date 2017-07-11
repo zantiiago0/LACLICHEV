@@ -45,14 +45,15 @@ class ProgressBar:
 
         :Returns:
         """
-        self.__iteration += 1
-        percent = ("{0:." + str(self.__decimals) + "f}").format(100 * (self.__iteration / float(self.__total)))
-        filledLength = int(self.__length * self.__iteration // self.__total)
-        progress = self.__fill * filledLength + '-' * (self.__length - filledLength)
-        timeStamp = time.clock() - self.__tStamp
-        print('\r%s |%s| %s%% - %.3fs - %d of %d' % (self.__prefix, progress, percent, timeStamp, self.__iteration, self.__total), end = '\r')
+        if  self.__iteration < self.__total:
+            self.__iteration += 1
+            percent = ("{0:." + str(self.__decimals) + "f}").format(100 * (self.__iteration / float(self.__total)))
+            filledLength = int(self.__length * self.__iteration // self.__total)
+            progress = self.__fill * filledLength + '-' * (self.__length - filledLength)
+            timeStamp = time.clock() - self.__tStamp
+            print('\r%s |%s| %s%% - %.3fs - %d of %d' % (self.__prefix, progress, percent, timeStamp, self.__iteration, self.__total), end = '\r')
         # Print New Line on Complete
-        if self.__iteration == self.__total:
+        elif self.__iteration == self.__total:
             print()
 
 

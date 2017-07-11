@@ -2,17 +2,26 @@
 The Guardian data extractor module
 API: b90595fd-be2a-4488-88bd-538a28af1be2
 """
-import time
+###################################################################################################
+#IMPORTS
+###################################################################################################
 import re
-
-from   dataExtractors.document import Document
+#Web Scrapping
+from   bs4 import BeautifulSoup
 
 #The Guardian API
 from   theguardian import theguardian_content
 
-#Web Scrapping
-from   bs4 import BeautifulSoup
+from   dataExtractors.eDocument import EDocument
+from   tools.progressBar        import ProgressBar
 
+###################################################################################################
+#CONSTANTS
+###################################################################################################
+
+###################################################################################################
+#CLASS
+###################################################################################################
 class TheGuardianExtractor:
     """
     The Guardian Extractor Class
@@ -48,31 +57,6 @@ class TheGuardianExtractor:
         else:
             self.__query = '"' + query + '"'
 
-    def __printProgressBar(self, iteration, total, tStamp, prefix='', decimals=1, length=50, fill='█'):
-        """
-        Call in a loop to create terminal progress bar
-
-        :Parameters:
-        - `iteration`: Current iteration (Int)
-        - `total`: Total iterations (Int)
-        - `tStamp`: Start time (Int)
-        - `prefix` (optional): Prefix string (Str)
-        - `suffix` (optional): Suffix string (Str)
-        - `decimals` (optional): Positive number of decimals in percent complete (Int)
-        - `length` (optional): Character length of bar (Int)
-        - `fill` (optional): Bar fill character (Str)
-
-        :Returns:
-        """
-        percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
-        filledLength = int(length * iteration // total)
-        progress = fill * filledLength + '-' * (length - filledLength)
-        timeStamp = time.clock() - tStamp
-        print('\r%s |%s| %s%% - %.3fs - %d of %d' % (prefix, progress, percent, timeStamp, iteration, total), end = '\r')
-        # Print New Line on Complete
-        if iteration == total:
-            print()
-
     def getContent(self, fromDate=0, toDate=0):
         """
         Returns an array of Documents obtained by the query to The Guardian.
@@ -96,13 +80,11 @@ class TheGuardianExtractor:
         content  = theguardian_content.Content(api=self.__API, **weatherQuery)
         response = content.get_content_response()
         # Setup toolbar
-        toolbarIt  = 0
         toolbarLen = response['response']['total']
         if toolbarLen > 0:
-            pages     = response['response']['pages']
-            timeStamp = time.clock()
+            pages = response['response']['pages']
+            pB    = ProgressBar(toolbarLen, prefix='Retrieving:')
             while True:
-                self.__printProgressBar(toolbarIt, toolbarLen, timeStamp, prefix='Progress:')
                 # Create documents from database
                 for itDoc in content.get_results(response):
                     if itDoc['type'] == "article" :
@@ -119,10 +101,9 @@ class TheGuardianExtractor:
                         for tag in itDoc['tags']:
                             docTags.append(tag['sectionId'])
                         # Create Document
-                        bSON = Document(docName, docUrl, docDate, docTags, docContent).dictDump()
+                        bSON = EDocument(docName, docUrl, docDate, docTags, docContent).dictDump()
                         bSONResult.append(bSON)
-                    toolbarIt += 1
-                    self.__printProgressBar(toolbarIt, toolbarLen, timeStamp, prefix='Retrieving: ')
+                    pB.updateProgress()
                 # Check if there's more content to obtain
                 if weatherQuery['page'] < pages:
                     weatherQuery['page'] += 1
@@ -146,3 +127,10 @@ class TheGuardianExtractor:
         Return a list of the keywords of the query
         """
         return self.__keywords
+
+###################################################################################################
+#TEST
+###################################################################################################
+if __name__ == "__main__":
+    theGuardian        = TheGuardianExtractor("heavy storms")
+    theGuardianContent = theGuardian.getContent()

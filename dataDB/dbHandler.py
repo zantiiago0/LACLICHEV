@@ -43,7 +43,7 @@ class DBHandler:
         pipeline = [
             {"$group": {
                 "_id": {
-                    keyName:"$keyName"
+                    keyName:"${0}".format(keyName)
                 },
                 "uniqueIds": {
                     "$addToSet": "$_id"
