@@ -67,6 +67,7 @@ class Indexer:
         - `debug`: Create the Index in RAM Memory (indexDir will be ignored). (Boolean)
         - `verbose`: Provide additional information about the initialization process. (Boolean)
         """
+        self.__verbose = verbose
         if indexDir != "":
             INDEX_DIR = indexDir
         else:
@@ -102,9 +103,8 @@ class Indexer:
         self.__analyzer = StandardAnalyzer(StandardAnalyzer.ENGLISH_STOP_WORDS_SET)
 
         # Print Indexer Information
-        if verbose:
-            print("Lucene version is: ", lucene.VERSION)
-            print("Index Directory: ", INDEX_DIR)
+        print("Lucene version is: ", lucene.VERSION)
+        print("Index Directory: ", INDEX_DIR)
 
     def __del__(self):
         self.__indexDir.close()
@@ -159,13 +159,12 @@ class Indexer:
             sTags += tag + '|'
         return sTags[:-1]
 
-    def IndexDocs(self, documents, verbose=False):
+    def IndexDocs(self, documents):
         """
         Index documents under the directory
 
         :Parameters:
         - `documents`: Documents to be indexed (List)
-        - `verbose`: Provide additional information about the indexation process. (Boolean)
         """
         # Get the Writer Configuration
         writerConfig = IndexWriterConfig(self.__analyzer)
@@ -184,14 +183,14 @@ class Indexer:
             # Add or update the document to the index
             if not self.__boAppend:
                 # New index, so we just add the document (no old document can be there):
-                if verbose:
+                if self.__verbose:
                     print("Adding " + document['name'])
                 writer.addDocument(doc)
             else:
                 # Existing index (an old copy of this document may have been indexed) so
                 # we use updateDocument instead to replace the old one matching the exact
                 # path, if present:
-                if verbose:
+                if self.__verbose:
                     print("Updating " + document['name'])
                 writer.updateDocument(Term(Indexer.NAME, document['name']), doc)
 
@@ -243,13 +242,12 @@ class Indexer:
         reader.close()
         return stemmedTerms
 
-    def FreqMatrix(self, byTerms=True, saveMtx=False, verbose=False):
+    def FreqMatrix(self, scattered=False, byTerms=True, saveMtx=False):
         """
         Generates a Frequency Matrix of the current Index
 
         :Parameters:
         - `saveMtx`: Save the Frequency Matrix to a .txt file. (Boolean)
-        - `verbose`: Provide additional information about the generation process. (Boolean)
         """
         freqMtx   = {} # Terms - DocumentID Matrix
         reader    = DirectoryReader.open(self.__indexDir)
@@ -257,13 +255,10 @@ class Indexer:
         print("Generating Frequency Matrix...")
         pB = ProgressBar(numDocs - 1, prefix='Progress:')
         for docIdx in range(numDocs):
-            doc      = reader.document(docIdx)
             termItr  = self.StemDocument(docIdx)
             termSize = len(termItr)
             docStr   = '{0}'.format(docIdx)
             termDict = {}
-            if verbose:
-                print("Processing file: %s - Terms: %d" % (doc.get(Indexer.NAME), termSize))
             for termText in termItr:
                 if byTerms:
                     # Check if the term exists
@@ -291,33 +286,67 @@ class Indexer:
             pB.updateProgress()
 
         if saveMtx and byTerms:
-            pathMatrix = os.path.dirname(os.path.realpath(__file__)) + "/freqMtx.txt"
-            fMatrix    = open(pathMatrix, 'w')
+            self.__saveMatrix(numDocs, freqMtx)
 
-            print("Saving Frequency Matrix File: ", pathMatrix)
-            pB = ProgressBar(len(freqMtx), prefix='Progress:')
-            # File Generation Start
-            print("+========= Frequency Matrix =========+", file=fMatrix)
-            print("%20s" % (' '), end=' ', file=fMatrix)
-            for docIdx in range(numDocs):
-                print("D{0:0>4}".format(docIdx), end=' ', file=fMatrix)
-            print(file=fMatrix)
-            for word in sorted(freqMtx):
-                print("%20s" % (word), end=' ', file=fMatrix)
-                for docIdx in range(reader.numDocs()):
-                    try:
-                        termCount = freqMtx[word][str(docIdx)]
-                        print("%02.03f" % (termCount), end=' ', file=fMatrix)
-                    except KeyError:
-                        print("  0  ", end=' ', file=fMatrix)
-                print(file=fMatrix)
-                pB.updateProgress()
-            # Close File
-            fMatrix.close()
+        if scattered and byTerms:
+            freqMtx = self.__scatterMatrix(numDocs, freqMtx)
 
         # Close IndexReader
         reader.close()
+
         return freqMtx
+
+    @staticmethod
+    def __scatterMatrix(numDocs, freqMtx):
+        print("Scattering Frequency Matrix...")
+        pB = ProgressBar(len(freqMtx), prefix='Progress:')
+        matrix        = []
+        innerMatrix   = ['Term']
+
+        #Generate Document Columns
+        for docIdx in range(numDocs):
+            innerMatrix.append("D{0:0>4}".format(docIdx))
+        matrix.append(innerMatrix)
+
+        #Generate Word Rows and Columns
+        for word in sorted(freqMtx):
+            innerMatrix = []
+            innerMatrix.append(word)
+            for docIdx in range(numDocs):
+                try:
+                    termCount = round(freqMtx[word][str(docIdx)], 3)
+                    innerMatrix.append(termCount)
+                except KeyError:
+                    innerMatrix.append(0)
+            matrix.append(innerMatrix)
+            pB.updateProgress()
+        return matrix
+
+    @staticmethod
+    def __saveMatrix(numDocs, freqMtx):
+        pathMatrix = os.path.dirname(os.path.realpath(__file__)) + "/freqMtx.txt"
+        fMatrix    = open(pathMatrix, 'w')
+
+        print("Saving Frequency Matrix File: ", pathMatrix)
+        pB = ProgressBar(len(freqMtx), prefix='Progress:')
+        # File Generation Start
+        print("+========= Frequency Matrix =========+", file=fMatrix)
+        print("%20s" % (' '), end=' ', file=fMatrix)
+        for docIdx in range(numDocs):
+            print("D{0:0>4}".format(docIdx), end=' ', file=fMatrix)
+        print(file=fMatrix)
+        for word in sorted(freqMtx):
+            print("%20s" % (word), end=' ', file=fMatrix)
+            for docIdx in range(numDocs):
+                try:
+                    termCount = freqMtx[word][str(docIdx)]
+                    print("%02.03f" % (termCount), end=' ', file=fMatrix)
+                except KeyError:
+                    print("  0  ", end=' ', file=fMatrix)
+            print(file=fMatrix)
+            pB.updateProgress()
+        # Close File
+        fMatrix.close()
 
     def AnalyzeDocument(self, docIdx):
         """
@@ -395,6 +424,7 @@ if __name__ == "__main__":
                 'stems' : matrix[value] }
         matrixDB.Insert(doc)
     """
+    documentIndexer.FreqMatrix()
     cities = documentIndexer.AnalyzeDocument(0)
     import webbrowser
 
