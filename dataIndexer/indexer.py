@@ -38,7 +38,7 @@ from org.apache.lucene.queryparser.classic      import QueryParser
 import nltk
 
 # Geocoding
-from geopy.geocoders import GoogleV3
+from geopy.geocoders import Nominatim
 
 path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if not path in sys.path:
@@ -327,7 +327,7 @@ class Indexer:
         - `docIdx`: Document's index ID (Int).
         """
         gpeList    = {}
-        geolocator = GoogleV3()
+        geolocator = Nominatim()
         reader     = DirectoryReader.open(self.__indexDir)
         doc        = reader.document(docIdx)
         # Load NLTK Data
@@ -340,7 +340,7 @@ class Indexer:
 
         #ProgressBar
         print("Analazing Document {0}".format(docIdx))
-        
+
         pB = ProgressBar(len(sentences), prefix='Progress:')
         # Loop over each sentence and tokenize it separately
         for sentence in sentences:
@@ -352,10 +352,11 @@ class Indexer:
                 for gpe in subtrees:
                     if not gpe[0] in gpeList:
                         try:
-                            location = geolocator.geocode(gpe[0])
+                            location = geolocator.geocode(gpe[0], geometry='geojson')
                             gpe = { gpe[0]: { 'location':location.address,
                                               'latitude':location.latitude,
-                                              'longitude':location.longitude } }
+                                              'longitude':location.longitude,
+                                              'geojson':location.raw['geojson']  } }
                             gpeList.update(gpe)
                         except:
                             print('Exceed')
@@ -394,13 +395,14 @@ if __name__ == "__main__":
                 'stems' : matrix[value] }
         matrixDB.Insert(doc)
     """
-    cities = documentIndexer.AnalyzeDocument(1)
+    cities = documentIndexer.AnalyzeDocument(0)
     import webbrowser
 
     html = ''
     for city, value in cities.items():
-        api  = "AIzaSyAelNyWCvnF0s2g8gfhwN31jFuCGeNjs3s"
-        url  = "https://www.google.com/maps/embed/v1/place?key={0}&q={1}&center={2},{3}".format(api, value['location'], value['latitude'], value['longitude'])
+        apiJS = "AIzaSyCjBzqKcJoUUd1ALelOL1qeG6jgRPHYmcA"
+        api   = "AIzaSyAelNyWCvnF0s2g8gfhwN31jFuCGeNjs3s"
+        url   = "https://www.google.com/maps/embed/v1/place?key={0}&q={1}&center={2},{3}".format(api, value['location'], value['latitude'], value['longitude'])
         html += '<iframe width="600" height="450" frameborder="0" style="border:0" src="{0}" allowfullscreen></iframe>\n'.format(url)
 
     path = os.path.abspath('maps.html')
