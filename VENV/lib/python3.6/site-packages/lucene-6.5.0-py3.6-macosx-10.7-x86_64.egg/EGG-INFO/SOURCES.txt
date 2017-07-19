@@ -1,0 +1,6 @@
+README
+lucene.egg-info/PKG-INFO
+lucene.egg-info/SOURCES.txt
+lucene.egg-info/dependency_links.txt
+lucene.egg-info/not-zip-safe
+lucene.egg-info/top_level.txt
