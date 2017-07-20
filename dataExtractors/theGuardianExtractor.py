@@ -10,7 +10,7 @@ import re
 from   bs4 import BeautifulSoup
 
 #The Guardian API
-from   theguardian import theguardian_content
+from   tools.theguardian        import theguardian_content
 
 from   dataExtractors.eDocument import EDocument
 from   tools.progressBar        import ProgressBar

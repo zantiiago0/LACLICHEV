@@ -1,6 +1,6 @@
 mongod.pid
 mongod.log
-mongodb/data/db
+tools/mongodb/data/db
 dataIndexer/luceneIndex
 .ipynb_checkpoints
 *.pyc

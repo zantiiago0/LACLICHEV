@@ -1,5 +1,5 @@
 #!/bin/bash
 
 echo "MongoDB Running"
-./mongodb/bin/mongod --config ${PWD}/mongodb/data/mongod.conf
+./tools/mongodb/bin/mongod --config ${PWD}/tools/mongodb/data/mongod.conf
 echo "MongoDB Stopped"

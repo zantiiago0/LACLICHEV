@@ -360,7 +360,7 @@ class Indexer:
         reader     = DirectoryReader.open(self.__indexDir)
         doc        = reader.document(docIdx)
         # Load NLTK Data
-        nltkPath = os.path.dirname(os.path.realpath(__file__)) + '/../nltk_data'
+        nltkPath = os.path.dirname(os.path.realpath(__file__)) + '/../tools/nltk_data'
         nltk.data.path.append(nltkPath)
 
         # Named Entity Recognition
