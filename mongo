@@ -1,5 +1,9 @@
 #!/bin/bash
 
 echo "MongoDB Running"
-./tools/mongodb/bin/mongod --config ${PWD}/tools/mongodb/data/mongod.conf
+if [ `uname` == "Darwin" ]; then
+    ./tools/mongodb/bin_macOS/mongod --config ${PWD}/tools/mongodb/data/mongod.conf
+else
+    ./tools/mongodb/bin/mongod       --config ${PWD}/tools/mongodb/data/mongod.conf
+fi
 echo "MongoDB Stopped"
