@@ -3,3 +3,4 @@ mongod.log
 mongodb/data/db
 dataIndexer/luceneIndex
 .ipynb_checkpoints
+*.pyc
