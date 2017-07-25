@@ -99,7 +99,10 @@ class TheGuardianExtractor:
                             docContent = docContent + article.get_text() + "\n"
                         # Extract Tags
                         for tag in itDoc['tags']:
-                            docTags.append(tag['sectionId'])
+                            try:
+                                docTags.append(tag['sectionId'])
+                            except:
+                                pass
                         # Create Document
                         bSON = EDocument(docName, docUrl, docDate, docTags, docContent).dictDump()
                         bSONResult.append(bSON)

@@ -1,6 +1,13 @@
 #!/bin/bash
 
 echo "MongoDB Running"
+
+#Create DB folder if doesn't exists
+if [ ! d /tools/mongodb/data/db ]; then 
+    mkdir /tools/mongodb/data/db 
+fi
+
+#Detect Unix Distribution
 if [ `uname` == "Darwin" ]; then
     ./tools/mongodb/bin_macOS/mongod --config ${PWD}/tools/mongodb/data/mongod.conf
 else

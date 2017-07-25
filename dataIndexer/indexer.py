@@ -39,6 +39,7 @@ import nltk
 
 # Geocoding
 from geopy.geocoders import Nominatim
+from geopy.exc       import GeocoderTimedOut
 
 path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if not path in sys.path:
@@ -109,6 +110,9 @@ class Indexer:
     def __del__(self):
         self.__indexDir.close()
 
+    ##################################################
+    #Private Methods
+    ##################################################
     @staticmethod
     def __getTimestamp(dateTime):
         """
@@ -159,6 +163,116 @@ class Indexer:
             sTags += tag + '|'
         return sTags[:-1]
 
+    @staticmethod
+    def __scatterMatrix(numDocs, freqMtx):
+        print("Scattering Frequency Matrix...")
+        pB = ProgressBar(len(freqMtx), prefix='Progress:')
+        matrix        = []
+        innerMatrix   = ['Term']
+
+        #Generate Document Columns
+        for docIdx in range(numDocs):
+            innerMatrix.append("D{0:0>4}".format(docIdx))
+        matrix.append(innerMatrix)
+
+        #Generate Word Rows and Columns
+        for word in sorted(freqMtx):
+            innerMatrix = []
+            innerMatrix.append(word)
+            for docIdx in range(numDocs):
+                try:
+                    termCount = round(freqMtx[word][str(docIdx)], 3)
+                    innerMatrix.append(termCount)
+                except KeyError:
+                    innerMatrix.append(0)
+            matrix.append(innerMatrix)
+            pB.updateProgress()
+        return matrix
+
+    @staticmethod
+    def __saveMatrix(numDocs, freqMtx):
+        pathMatrix = os.path.dirname(os.path.realpath(__file__)) + "/freqMtx.txt"
+        fMatrix    = open(pathMatrix, 'w')
+
+        print("Saving Frequency Matrix File: ", pathMatrix)
+        pB = ProgressBar(len(freqMtx), prefix='Progress:')
+        # File Generation Start
+        print("+========= Frequency Matrix =========+", file=fMatrix)
+        print("%20s" % (' '), end=' ', file=fMatrix)
+        for docIdx in range(numDocs):
+            print("D{0:0>4}".format(docIdx), end=' ', file=fMatrix)
+        print(file=fMatrix)
+        for word in sorted(freqMtx):
+            print("%20s" % (word), end=' ', file=fMatrix)
+            for docIdx in range(numDocs):
+                try:
+                    termCount = freqMtx[word][str(docIdx)]
+                    print("%02.03f" % (termCount), end=' ', file=fMatrix)
+                except KeyError:
+                    print("  0  ", end=' ', file=fMatrix)
+            print(file=fMatrix)
+            pB.updateProgress()
+        # Close File
+        fMatrix.close()
+
+    
+    def __stemString(self, stringToStem):
+        stemmedTerms = []
+        tknStream    = self.__analyzer.tokenStream('STEM', stringToStem)
+        stemmed      = SnowballFilter(tknStream, "English")
+        stemmed.reset()
+        while stemmed.incrementToken():
+            stemmedTerms.append(stemmed.getAttribute(CharTermAttribute.class_).toString())
+
+        tknStream.close()
+        return stemmedTerms
+
+    @staticmethod
+    def __normalize(qVector, freqMtx):
+        for term in qVector:
+            for docId in freqMtx:
+                if (term in freqMtx[docId]) and (freqMtx[docId][term] > qVector[term]):
+                    qVector[term] = freqMtx[docId][term]
+
+    @staticmethod
+    def __dotProduct(aVector, bVector):
+        """
+        Calculate Dot Product
+
+        :Parameters:
+        - `aVector`: A Vector. (Dict)
+        - `bVector`: B Vector. (Dict)
+
+        :Returns:
+        - Dot Product. (Int)
+        """
+        dotProduct = 0
+        for term in aVector:
+            if term in bVector:
+                product     = aVector[term] * bVector[term]
+                dotProduct += product
+
+        return dotProduct
+
+    @staticmethod
+    def __magnitude(vector):
+        """
+        Calculate Dot Product
+
+        :Parameters:
+        - `vector`: Query Vector. (Dict)
+
+        :Returns:
+        - Vector Magnitude. (Int)
+        """
+        # Magnitude of the vector is the square root of the dot product of the vector with itself.
+        vectorMagnitude = Indexer.__dotProduct(vector, vector)
+        vectorMagnitude = math.sqrt(vectorMagnitude)
+
+        return vectorMagnitude
+    ##################################################
+    #Public Methods
+    ##################################################
     def IndexDocs(self, documents):
         """
         Index documents under the directory
@@ -229,18 +343,11 @@ class Indexer:
         :Parameters:
         - `docIdx`: Document's index ID (Int).
         """
-        stemmedTerms = []
         reader       = DirectoryReader.open(self.__indexDir)
-        doc          = reader.document(docIdx)
-        tknStream    = self.__analyzer.tokenStream(Indexer.CONTENT, doc.get(Indexer.CONTENT))
-        stemmed      = SnowballFilter(tknStream, "English")
-        stemmed.reset()
-        while stemmed.incrementToken():
-            stemmedTerms.append(stemmed.getAttribute(CharTermAttribute.class_).toString())
-
-        tknStream.close()
+        doc          = reader.document(docIdx).get(Indexer.CONTENT)
         reader.close()
-        return stemmedTerms
+
+        return self.__stemString(doc)
 
     def FreqMatrix(self, scattered=False, byTerms=True, saveMtx=False):
         """
@@ -296,57 +403,26 @@ class Indexer:
 
         return freqMtx
 
-    @staticmethod
-    def __scatterMatrix(numDocs, freqMtx):
-        print("Scattering Frequency Matrix...")
-        pB = ProgressBar(len(freqMtx), prefix='Progress:')
-        matrix        = []
-        innerMatrix   = ['Term']
+    def GetSimilarity(self, query, freqMtx):
+        """
+        Cosine Similarity
+        """
+        qVector = { }
+        qList   = self.__stemString(query)
+        for stem in qList:
+            qVector.update({ stem : 0 })
+        self.__normalize(qVector, freqMtx)
 
-        #Generate Document Columns
-        for docIdx in range(numDocs):
-            innerMatrix.append("D{0:0>4}".format(docIdx))
-        matrix.append(innerMatrix)
+        qList = []
+        #Get similarity between query and doc[n]
+        for docIdx, dVector in freqMtx.items():
+            dP = self.__dotProduct(qVector, dVector)
+            qM = self.__magnitude(qVector)
+            dM = self.__magnitude(dVector)
+            cosSimilarity = dP / (qM * dM)
+            qList.append((docIdx, cosSimilarity))
 
-        #Generate Word Rows and Columns
-        for word in sorted(freqMtx):
-            innerMatrix = []
-            innerMatrix.append(word)
-            for docIdx in range(numDocs):
-                try:
-                    termCount = round(freqMtx[word][str(docIdx)], 3)
-                    innerMatrix.append(termCount)
-                except KeyError:
-                    innerMatrix.append(0)
-            matrix.append(innerMatrix)
-            pB.updateProgress()
-        return matrix
-
-    @staticmethod
-    def __saveMatrix(numDocs, freqMtx):
-        pathMatrix = os.path.dirname(os.path.realpath(__file__)) + "/freqMtx.txt"
-        fMatrix    = open(pathMatrix, 'w')
-
-        print("Saving Frequency Matrix File: ", pathMatrix)
-        pB = ProgressBar(len(freqMtx), prefix='Progress:')
-        # File Generation Start
-        print("+========= Frequency Matrix =========+", file=fMatrix)
-        print("%20s" % (' '), end=' ', file=fMatrix)
-        for docIdx in range(numDocs):
-            print("D{0:0>4}".format(docIdx), end=' ', file=fMatrix)
-        print(file=fMatrix)
-        for word in sorted(freqMtx):
-            print("%20s" % (word), end=' ', file=fMatrix)
-            for docIdx in range(numDocs):
-                try:
-                    termCount = freqMtx[word][str(docIdx)]
-                    print("%02.03f" % (termCount), end=' ', file=fMatrix)
-                except KeyError:
-                    print("  0  ", end=' ', file=fMatrix)
-            print(file=fMatrix)
-            pB.updateProgress()
-        # Close File
-        fMatrix.close()
+        return sorted(qList, key=lambda similarity: similarity[1], reverse=True)
 
     def AnalyzeDocument(self, docIdx):
         """
@@ -387,8 +463,10 @@ class Indexer:
                                               'longitude':location.longitude,
                                               'geojson':location.raw['geojson']  } }
                             gpeList.update(gpe)
+                        except GeocoderTimedOut:
+                            pass
                         except:
-                            print('Exceed')
+                            print("Unexpected error:", sys.exc_info()[0])
             pB.updateProgress()
 
         return gpeList
@@ -396,36 +474,34 @@ class Indexer:
 ###################################################################################################
 #TEST
 ###################################################################################################
-if __name__ == "__main__":
+def saveFreqMatrixByTerms():
     """
-    Info Link
-    https://lucene.apache.org/core/6_5_1/demo/src-html/org/apache/lucene/demo/SearchFiles.html
-    http://nullege.com/codes/show/src%40l%40u%40lupyne-1.6%40examples%40__main__.py/2/lucene.initVM/python
-    https://gist.github.com/mocobeta/0d2feeb59295bfad157ed06e36fd626a
-    https://www.adictosaltrabajo.com/tutoriales/lucene-ana-lyzers-stemming-more-like-this/
+    Save the Frequency Matrix Terms vs Docs
     """
-    os.system('clear')
-
-    documentIndexer = Indexer(verbose=True)
-    """
-    matrix          = documentIndexer.FreqMatrix()
-    matrixDB        = DBHandler('TermsDB')
-    for value in sorted(matrix):
+    freqMatrix = documentIndexer.FreqMatrix()
+    matrixDB   = DBHandler('TermsDB')
+    for value in sorted(freqMatrix):
         doc = { 'stem' : value,
-                'docs' : matrix[value] }
+                'docs' : freqMatrix[value] }
         matrixDB.Insert(doc)
     del matrixDB
+
+def saveFreqMatrixByDocs():
     """
+    Save the Frequency Matrix Docs vs Terms
     """
-    matrixDB = DBHandler('DocsDB')
-    matrix   = documentIndexer.FreqMatrix(byTerms=False)
-    for value in matrix:
+    freqMatrix = documentIndexer.FreqMatrix(byTerms=False)
+    matrixDB   = DBHandler('DocsDB')
+    for value in freqMatrix:
         doc = { 'doc'   : int(value),
-                'stems' : matrix[value] }
+                'stems' : freqMatrix[value] }
         matrixDB.Insert(doc)
+
+def showCities(docID):
     """
-    documentIndexer.FreqMatrix()
-    cities = documentIndexer.AnalyzeDocument(0)
+    Create an HTML with the GPE in the docID
+    """
+    cities = documentIndexer.AnalyzeDocument(docID)
     import webbrowser
 
     html = ''
@@ -441,6 +517,26 @@ if __name__ == "__main__":
         f.write(html)
         #Open url in new tab if possible
         webbrowser.open_new_tab(url)
+
+###################################################################################################
+#MAIN
+###################################################################################################
+if __name__ == "__main__":
+    """
+    Info Link
+    https://lucene.apache.org/core/6_5_1/demo/src-html/org/apache/lucene/demo/SearchFiles.html
+    http://nullege.com/codes/show/src%40l%40u%40lupyne-1.6%40examples%40__main__.py/2/lucene.initVM/python
+    https://gist.github.com/mocobeta/0d2feeb59295bfad157ed06e36fd626a
+    https://www.adictosaltrabajo.com/tutoriales/lucene-ana-lyzers-stemming-more-like-this/
+    """
+    os.system('clear')
+
+    documentIndexer = Indexer(verbose=True)
+    #freqMatrix      = documentIndexer.FreqMatrix(byTerms=False)
+    #List            = documentIndexer.GetSimilarity("heavy storms", freqMatrix)
+    documentIndexer.AnalyzeDocument(0)
+    documentIndexer.AnalyzeDocument(49)
+    documentIndexer.AnalyzeDocument(3)
 
 ###################################################################################################
 #END OF FILE
