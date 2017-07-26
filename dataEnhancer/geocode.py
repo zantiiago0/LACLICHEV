@@ -1,5 +1,8 @@
 """
 Geocode Module
+
+Open StreetMap (Map Features)
+http://wiki.openstreetmap.org/wiki/Map_Features
 """
 ###################################################################################################
 #IMPORTS

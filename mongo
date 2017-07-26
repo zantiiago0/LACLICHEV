@@ -3,8 +3,8 @@
 echo "MongoDB Running"
 
 #Create DB folder if doesn't exists
-if [ ! d /tools/mongodb/data/db ]; then 
-    mkdir /tools/mongodb/data/db 
+if [ ! -d tools/mongodb/data/db ]; then
+    mkdir tools/mongodb/data/db
 fi
 
 #Detect Unix Distribution

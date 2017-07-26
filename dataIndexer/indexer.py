@@ -19,7 +19,7 @@ import time
 import datetime
 import math
 import sys
-sys.path.insert(1, os.getcwd() + "/..")
+sys.path.insert(1, os.getcwd())
 
 # Lucene
 import lucene
@@ -517,6 +517,7 @@ if __name__ == "__main__":
     http://nullege.com/codes/show/src%40l%40u%40lupyne-1.6%40examples%40__main__.py/2/lucene.initVM/python
     https://gist.github.com/mocobeta/0d2feeb59295bfad157ed06e36fd626a
     https://www.adictosaltrabajo.com/tutoriales/lucene-ana-lyzers-stemming-more-like-this/
+    http://www.nltk.org/book/ch07.html
     """
     os.system('clear')
 
