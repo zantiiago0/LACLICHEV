@@ -19,6 +19,7 @@ import time
 import datetime
 import math
 import sys
+sys.path.insert(1, os.getcwd() + "/..")
 
 # Lucene
 import lucene
@@ -37,17 +38,12 @@ from org.apache.lucene.queryparser.classic      import QueryParser
 # Natural Language Toolkit
 import nltk
 
-# Geocoding
-from geopy.geocoders import Nominatim
-from geopy.exc       import GeocoderTimedOut
-
-path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-if not path in sys.path:
-    sys.path.insert(1, path)
-del path
-
 from dataDB.dbHandler  import DBHandler
 from tools.progressBar import ProgressBar
+
+# Geocoding
+from dataEnhancer.geocode import Geocode
+
 ###################################################################################################
 #CONSTANTS
 ###################################################################################################
@@ -432,7 +428,7 @@ class Indexer:
         - `docIdx`: Document's index ID (Int).
         """
         gpeList    = {}
-        geolocator = Nominatim()
+        geolocator = Geocode()
         reader     = DirectoryReader.open(self.__indexDir)
         doc        = reader.document(docIdx)
         # Load NLTK Data
@@ -454,20 +450,13 @@ class Indexer:
             ner = nltk.ne_chunk(ner)
             # Get all the Geo-Political Entities
             for subtrees in list(ner.subtrees(filter=lambda subtree: subtree.label()=='GPE')):
-                for gpe in subtrees:
-                    if not gpe[0] in gpeList:
-                        try:
-                            location = geolocator.geocode(gpe[0], geometry='geojson')
-                            gpe = { gpe[0]: { 'location':location.address,
-                                              'latitude':location.latitude,
-                                              'longitude':location.longitude,
-                                              'geojson':location.raw['geojson']  } }
-                            gpeList.update(gpe)
-                        except GeocoderTimedOut:
-                            pass
-                        except:
-                            print("Unexpected error:", sys.exc_info()[0])
+                entityName = ' '.join([child[0] for child in subtrees])
+                if entityName not in gpeList:
+                    location = geolocator.GetGPE(entityName)
+                    if location:
+                        gpeList.update(location)
             pB.updateProgress()
+        gpeList = geolocator.GetFeatureCollection(gpeList)
 
         return gpeList
 
@@ -534,10 +523,7 @@ if __name__ == "__main__":
     documentIndexer = Indexer(verbose=True)
     #freqMatrix      = documentIndexer.FreqMatrix(byTerms=False)
     #List            = documentIndexer.GetSimilarity("heavy storms", freqMatrix)
-    documentIndexer.AnalyzeDocument(0)
-    documentIndexer.AnalyzeDocument(49)
-    documentIndexer.AnalyzeDocument(3)
-
+    features = documentIndexer.AnalyzeDocument(0)
 ###################################################################################################
 #END OF FILE
 ###################################################################################################
