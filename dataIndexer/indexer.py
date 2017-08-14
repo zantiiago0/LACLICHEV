@@ -40,6 +40,7 @@ import nltk
 
 from dataDB.dbHandler  import DBHandler
 from tools.progressBar import ProgressBar
+from tools.dtExplorer  import DTExplorer
 
 # Geocoding
 from dataEnhancer.geocode import Geocode
@@ -460,6 +461,24 @@ class Indexer:
 
         return gpeList
 
+    def GetDocField(self, docIdx, field=CONTENT):
+        """
+        Get the document's field
+
+        :Parameters:
+        - `docIdx`: Document's index ID (Int).
+        - `field`: Field to retrieve (Str).
+
+        :Returns:
+        - Document's field. (Str)
+        """
+        reader    = DirectoryReader.open(self.__indexDir)
+        doc       = reader.document(docIdx)
+        content   = doc.get(field)
+        reader.close()
+
+        return content
+
 ###################################################################################################
 #TEST
 ###################################################################################################
@@ -524,7 +543,7 @@ if __name__ == "__main__":
     documentIndexer = Indexer(verbose=True)
     #freqMatrix      = documentIndexer.FreqMatrix(byTerms=False)
     #List            = documentIndexer.GetSimilarity("heavy storms", freqMatrix)
-    features = documentIndexer.AnalyzeDocument(0)
+    #features = documentIndexer.AnalyzeDocument(0)
 ###################################################################################################
 #END OF FILE
 ###################################################################################################
