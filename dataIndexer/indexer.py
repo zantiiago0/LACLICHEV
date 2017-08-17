@@ -56,7 +56,7 @@ class Indexer:
     """
     Indexer Class
     """
-    (NAME, CONTENT, DATE, URL, TAGS) = ("name", "content", "date", "url", "tags")
+    (NAME, CONTENT, DATE, URL, TAGS, TIMESTAMP) = ("name", "content", "date", "url", "tags", "timestamp")
 
     def __init__(self, indexDir="", debug=False, verbose=False):
         """
@@ -286,11 +286,12 @@ class Indexer:
             # Create a document that would we added to the index
             doc = Document()
             # Add a field to this document
-            doc.add(TextField(Indexer.NAME,    document['name'],    Field.Store.YES))
-            doc.add(Field(Indexer.CONTENT,     document['content'], self.__contentType))
-            doc.add(LongPoint(Indexer.DATE,    self. __getTimestamp(document['date'])))
-            doc.add(StringField(Indexer.URL,   document['url'],     Field.Store.YES))
-            doc.add(TextField(Indexer.TAGS,    self.__qualifyTags(document['tags']), Field.Store.YES))
+            doc.add(TextField(Indexer.NAME,      document['name'],    Field.Store.YES))
+            doc.add(Field(Indexer.CONTENT,       document['content'], self.__contentType))
+            doc.add(StringField(Indexer.DATE,    document['date'],    Field.Store.YES))
+            doc.add(StringField(Indexer.URL,     document['url'],     Field.Store.YES))
+            doc.add(TextField(Indexer.TAGS,      self.__qualifyTags(document['tags']), Field.Store.YES))
+            doc.add(LongPoint(Indexer.TIMESTAMP, self.__getTimestamp(document['date'])))
             # Add or update the document to the index
             if not self.__boAppend:
                 # New index, so we just add the document (no old document can be there):
@@ -544,6 +545,7 @@ if __name__ == "__main__":
     #freqMatrix      = documentIndexer.FreqMatrix(byTerms=False)
     #List            = documentIndexer.GetSimilarity("heavy storms", freqMatrix)
     #features = documentIndexer.AnalyzeDocument(0)
+    documentIndexer.GetDocField(0, "date")
 ###################################################################################################
 #END OF FILE
 ###################################################################################################
