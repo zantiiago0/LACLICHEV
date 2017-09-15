@@ -72,10 +72,11 @@ class DBHandler:
         - `data`: Document to be inserted (Dict | Dict List)
         """
         if not isinstance(data, list):
+            #Item Insert
             self.__collection.insert_one(data)
         else:
-            for bSON in data:
-                self.__collection.insert_one(bSON)
+            #Bulk Insert
+            self.__collection.insert_many(data)
 
     def GetDocuments(self):
         """

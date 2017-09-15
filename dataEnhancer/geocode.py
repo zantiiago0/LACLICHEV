@@ -8,6 +8,7 @@ http://wiki.openstreetmap.org/wiki/Map_Features
 #IMPORTS
 ###################################################################################################
 import sys
+import json
 
 # Geocoding
 from geopy.geocoders import Nominatim
@@ -24,9 +25,13 @@ class Geocode:
     """
     Geocode Class
     """
+    (NORTH_AMERICA, SOUTH_AMERICA, EUROPE, ASIA, AFRICA, OCEANIA) =('NA', 'SA', 'EU', 'AS', 'AF', 'OC')
 
     def __init__(self):
-        self.__geolocator = Nominatim()
+        self.__geolocator   = Nominatim()
+        #Add Country Codes Param
+        self.__geolocator.structured_query_params.add('countrycodes')
+        self.__countryCodes = json.loads(open("tools/countryCodes.json").read())
 
     ##################################################
     #Private Methods
@@ -44,10 +49,20 @@ class Geocode:
                 isValid = True
 
         return isValid
+
+    def __getCountries(self, continent):
+        countries = ''
+        for country in self.__countryCodes:
+            if country['Cont'] == continent:
+                countries += '{0},'.format(country['Code'])
+
+        return countries[:-1]
+
+
     ##################################################
     #Public Methods
     ##################################################
-    def GetGPE(self, gpeName):
+    def GetGPE(self, gpeName, gpeContinent):
         """
         Generates an GPE Dict.
 
@@ -56,7 +71,9 @@ class Geocode:
         """
         gpe = None
         try:
-            location = self.__geolocator.geocode(gpeName, geometry='geojson')
+            countries = self.__getCountries(gpeContinent)
+            query     = {'city':gpeName, 'countrycodes':countries }
+            location  = self.__geolocator.geocode(query, geometry='geojson')
 
             #Find a Boundary or a Place Location Class
             if self.__isValid(location):
@@ -107,6 +124,8 @@ if __name__ == "__main__":
     """
     MAIN
     """
+    geolocator = Geocode()
+    geolocator.GetGPE("Guadalajara", Geocode.NORTH_AMERICA)
 
 ###################################################################################################
 #END OF FILE
