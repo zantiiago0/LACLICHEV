@@ -55,7 +55,8 @@ Its goal is to collect weather related data from various digital newspaper libra
 # ✍🏻 Authors ✍🏻 
 
 * **Santiago Ruiz** (Autonomous University of Guadalajara, Invited Research Engineer at Barcelona Computer Center) <details>
-    <summary> Contact </summary> santiago.ruizangulo@edu.uag.mx
+    <summary> Contact </summary> 
+    <a href="mailto:santiago.ruizangulo@edu.uag.mx" target="_top">santiago.ruizangulo@edu.uag.mx</a>
     </details>
 
 ## 🙇🏻 Acknowledgments

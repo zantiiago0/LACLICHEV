@@ -9,6 +9,7 @@ http://wiki.openstreetmap.org/wiki/Map_Features
 ###################################################################################################
 import sys
 import json
+import os
 
 # Geocoding
 from geopy.geocoders import Nominatim
@@ -29,9 +30,10 @@ class Geocode:
 
     def __init__(self):
         self.__geolocator   = Nominatim()
-        #Add Country Codes Param
         self.__geolocator.structured_query_params.add('countrycodes')
-        self.__countryCodes = json.loads(open("tools/countryCodes.json").read())
+        # Load Country Codes
+        jsonPath            = os.getcwd()[:-8] + "/tools/countryCodes.json"
+        self.__countryCodes = json.loads(open(jsonPath).read())
 
     ##################################################
     #Private Methods
