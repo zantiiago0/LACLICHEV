@@ -20,7 +20,7 @@ import datetime
 import math
 import sys
 sys.path.insert(1, os.getcwd())
-
+sys.path.insert(1, os.getcwd() + "/..")
 # Lucene
 import lucene
 
@@ -58,14 +58,16 @@ class Indexer:
     """
     (NAME, CONTENT, DATE, URL, TAGS, TIMESTAMP) = ("name", "content", "date", "url", "tags", "timestamp")
 
-    def __init__(self, indexDir="", debug=False, verbose=False):
+    def __init__(self, indexDir="", language="English", debug=False, verbose=False):
         """
         :Parameters:
         - `indexDir`: Path where the Index will be saved. (Str)
+        - `language`: Language of the indexer (Spanish | English). (Str)
         - `debug`: Create the Index in RAM Memory (indexDir will be ignored). (Boolean)
         - `verbose`: Provide additional information about the initialization process. (Boolean)
         """
-        self.__verbose = verbose
+        self.__verbose  = verbose
+        self.__language = language
         if indexDir != "":
             INDEX_DIR = indexDir
         else:
@@ -212,11 +214,10 @@ class Indexer:
         # Close File
         fMatrix.close()
 
-    
     def __stemString(self, stringToStem):
         stemmedTerms = []
         tknStream    = self.__analyzer.tokenStream('STEM', stringToStem)
-        stemmed      = SnowballFilter(tknStream, "English")
+        stemmed      = SnowballFilter(tknStream, self.__language)
         stemmed.reset()
         while stemmed.incrementToken():
             stemmedTerms.append(stemmed.getAttribute(CharTermAttribute.class_).toString())
@@ -434,12 +435,12 @@ class Indexer:
         reader     = DirectoryReader.open(self.__indexDir)
         doc        = reader.document(docIdx)
         # Load NLTK Data
-        nltkPath = os.path.dirname(os.path.realpath(__file__)) + '/../tools/nltk_data'
+        nltkPath = os.path.dirname(os.path.realpath(__file__ + "/..")) + '/tools/nltk_data'
         nltk.data.path.append(nltkPath)
 
         # Named Entity Recognition
         content   = doc.get(Indexer.CONTENT)
-        sentences = nltk.sent_tokenize(content)
+        sentences = nltk.sent_tokenize(content, self.__language.lower())
 
         #ProgressBar
         print("Analazing Document {0}".format(docIdx))
@@ -447,8 +448,8 @@ class Indexer:
         pB = ProgressBar(len(sentences), prefix='Progress:')
         # Loop over each sentence and tokenize it separately
         for sentence in sentences:
-            ner = nltk.word_tokenize(sentence)
-            ner = nltk.pos_tag(ner)
+            ner = nltk.word_tokenize(sentence, self.__language.lower())
+            ner = nltk.pos_tag(ner, lang=self.__language[:3].lower())
             ner = nltk.ne_chunk(ner)
             # Get all the Geo-Political Entities
             for subtrees in list(ner.subtrees(filter=lambda subtree: subtree.label()=='GPE')):
