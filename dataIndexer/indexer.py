@@ -423,12 +423,16 @@ class Indexer:
 
         return sorted(qList, key=lambda similarity: similarity[1], reverse=True)
 
-    def AnalyzeDocument(self, docIdx):
+    def AnalyzeDocument(self, docIdx, continent='EU'):
         """
         Generates a list of (entity, relation, entity) tuples as its output.
 
         :Parameters:
         - `docIdx`: Document's index ID (Int).
+        - `continent`: Continent to search for the GPEs found (Str)
+                       'North America':'NA' | 'South America':'SA',
+                       'Europe':'EU'        | 'Asia':'AS',
+                       'Africa':'AF'        | 'Oceania':'OC'
         """
         gpeList    = {}
         geolocator = Geocode()
@@ -455,7 +459,7 @@ class Indexer:
             for subtrees in list(ner.subtrees(filter=lambda subtree: subtree.label()=='GPE')):
                 entityName = ' '.join([child[0] for child in subtrees])
                 if entityName not in gpeList:
-                    location = geolocator.GetGPE(entityName)
+                    location = geolocator.GetGPE(entityName, continent)
                     if location:
                         gpeList.update(location)
             pB.updateProgress()
@@ -542,10 +546,10 @@ if __name__ == "__main__":
     """
     os.system('clear')
 
-    documentIndexer = Indexer(verbose=True)
+    documentIndexer = Indexer(verbose=True, language="Spanish")
     #freqMatrix      = documentIndexer.FreqMatrix(byTerms=False)
     #List            = documentIndexer.GetSimilarity("heavy storms", freqMatrix)
-    #features = documentIndexer.AnalyzeDocument(0)
+    features = documentIndexer.AnalyzeDocument(0)
     documentIndexer.GetDocField(0, "date")
 ###################################################################################################
 #END OF FILE
